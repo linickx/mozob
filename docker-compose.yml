@@ -1,0 +1,79 @@
+version: '2'
+services:
+  api_httpobs:
+    build: ./httpobs
+    command: uwsgi --http :57001 --wsgi-file /app/httpobs/website/main.py --processes 8 --callable app --master
+    depends_on:
+      - db_httpobs
+    environment:
+      - HTTPOBS_BROKER_URL=redis://redis:6379/0
+      - HTTPOBS_DATABASE_HOST=db_httpobs
+      - HTTPOBS_DATABASE_PASS=httpobsapipassword
+      - HTTPOBS_DATABASE_USER=httpobsapi
+    links:
+      - db_httpobs
+    ports:
+      - "57001:57001"
+ 
+  scanner_httpobs:
+    build: ./httpobs
+    command: /app/httpobs/scripts/httpobs-scan-worker
+    depends_on:
+      - db_httpobs
+      - redis
+    environment:
+      - HTTPOBS_BROKER_URL=redis://redis:6379/0
+      - HTTPOBS_DATABASE_HOST=db_httpobs
+      - HTTPOBS_DATABASE_PASS=httpobsscannerpassword
+      - HTTPOBS_DATABASE_USER=httpobsscanner
+      - HTTPOBS_MAX_CONCURRENCY=16
+    links:
+      - db_httpobs
+      - redis
+
+  db_httpobs:
+    build: ./db_httpobs
+    environment:
+      - POSTGRES_USER=httpobs
+      - POSTGRES_PASSWORD=totallyfakepassword
+      - POSTGRES_DB=http_observatory
+
+  redis:
+    image: redis
+
+  api_tlsobs:
+    image: mozilla/tls-observatory
+    command: tlsobs-api
+    depends_on:
+      - db_tlsobs
+    environment:
+      - TLSOBS_API_ENABLE=on
+      - TLSOBS_POSTGRES=db_tlsobs
+      - TLSOBS_POSTGRESDB=observatory
+      - TLSOBS_POSTGRESPASS=tlsobsapipassword
+      - TLSOBS_POSTGRESUSER=tlsobsapi
+    links:
+      - db_tlsobs
+    ports:
+      - "8083:8083"
+
+  scanner_tlsobs:
+    image: mozilla/tls-observatory
+    command: tlsobs-scanner
+    depends_on:
+      - db_tlsobs
+    environment:
+      - TLSOBS_SCANNER_ENABLE=on
+      - TLSOBS_POSTGRES=db_tlsobs
+      - TLSOBS_POSTGRESDB=observatory
+      - TLSOBS_POSTGRESPASS=tlsobsscannerpassword
+      - TLSOBS_POSTGRESUSER=tlsobsscanner
+    links:
+      - db_tlsobs
+
+  db_tlsobs:
+    build: ./db_tlsobs
+    environment:
+      - POSTGRES_USER=tlspobs
+      - POSTGRES_PASSWORD=totallyfakepassword
+      - POSTGRES_DB=observatory
