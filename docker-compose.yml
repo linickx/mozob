@@ -31,16 +31,6 @@ services:
       - db_httpobs
       - redis
 
-  db_httpobs:
-    build: ./db_httpobs
-    environment:
-      - POSTGRES_USER=httpobs
-      - POSTGRES_PASSWORD=totallyfakepassword
-      - POSTGRES_DB=http_observatory
-
-  redis:
-    image: redis
-
   api_tlsobs:
     image: mozilla/tls-observatory
     command: tlsobs-api
@@ -71,9 +61,35 @@ services:
     links:
       - db_tlsobs
 
+  redis:
+    image: redis
+
+  db_httpobs:
+    build: ./db_httpobs
+    environment:
+      - POSTGRES_USER=httpobs
+      - POSTGRES_PASSWORD=totallyfakepassword
+      - POSTGRES_DB=http_observatory
+
   db_tlsobs:
     build: ./db_tlsobs
     environment:
       - POSTGRES_USER=tlspobs
       - POSTGRES_PASSWORD=totallyfakepassword
       - POSTGRES_DB=observatory
+
+  website:
+    build: 
+      context: ./website
+      args:
+        HTTP_OBS: http://localhost:57001/api/v1/
+        TLS_OBS: http://localhost:8083/api/v1/
+    depends_on:
+      - api_httpobs
+      - api_tlsobs
+    ports:
+      - "5500:5500"
+    links:
+      - api_httpobs
+      - api_tlsobs
+
